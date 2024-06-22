@@ -1,10 +1,15 @@
 const express = require('express');
 const axios = require('axios');
 const SSE = require('express-sse');
+const multer = require('multer');
+const fs = require('fs');
 const app = express();
 const port = 3000;
 
 app.use(express.json());
+
+// Configure multer for file uploads
+const upload = multer({ dest: 'uploads/' });
 
 // Helper function to chunk an array
 const chunkArray = (array, chunkSize) => {
@@ -26,46 +31,62 @@ app.get('/', (req, res) => {
 app.get('/api/notifications-progress', sse.init);
 
 // API endpoint to send notifications
-app.post('/api/send-notifications', async (req, res) => {
-  const { message, deviceTokens, serverKey } = req.body;
+app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (req, res) => {
+  const { message, serverKey } = req.body;
+  const file = req.file;
 
-  if (!message || !Array.isArray(deviceTokens) || !serverKey) {
+  if (!message || !file || !serverKey) {
     return res.status(400).json({ error: 'Invalid parameters' });
   }
 
-  const deviceTokenChunks = chunkArray(deviceTokens, 150);
-  let progress = 0;
+  try {
+    // Read and parse the JSON file
+    const fileContent = fs.readFileSync(file.path, 'utf8');
+    const deviceTokens = JSON.parse(fileContent);
 
-  for (const chunk of deviceTokenChunks) {
-    try {
-      await axios.post('https://fcm.googleapis.com/fcm/send', {
-        notification: {
-          title: message.title,
-          body: message.description,
-          image: message.image,
-          icon: message.icon,
-          link: message.link,
-        },
-        data:{
-          actions: []
-        },
-        registration_ids: chunk,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `key=${serverKey}`,
-        },
-      });
-      progress += chunk.length;
-      sse.send({ progress, total: deviceTokens.length });
-    } catch (error) {
-      sse.send({ error: 'Failed to send notifications', details: error.message });
-      return res.status(500).json({ error: 'Failed to send notifications', details: error.message });
+    if (!Array.isArray(deviceTokens)) {
+      return res.status(400).json({ error: 'Invalid file format' });
     }
-  }
 
-  sse.send({ progress: deviceTokens.length, total: deviceTokens.length }); // Ensure completion is sent
-  res.status(200).json({ message: 'Notifications sent' });
+    const deviceTokenChunks = chunkArray(deviceTokens, 150);
+    let progress = 0;
+
+    for (const chunk of deviceTokenChunks) {
+      try {
+        await axios.post('https://fcm.googleapis.com/fcm/send', {
+          notification: {
+            title: message.title,
+            body: message.description,
+            image: message.image,
+            icon: message.icon,
+            link: message.link,
+          },
+          data: {
+            actions: []
+          },
+          registration_ids: chunk,
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `key=${serverKey}`,
+          },
+        });
+        progress += chunk.length;
+        sse.send({ progress, total: deviceTokens.length });
+      } catch (error) {
+        sse.send({ error: 'Failed to send notifications', details: error.message });
+        return res.status(500).json({ error: 'Failed to send notifications', details: error.message });
+      }
+    }
+
+    sse.send({ progress: deviceTokens.length, total: deviceTokens.length }); // Ensure completion is sent
+    res.status(200).json({ message: 'Notifications sent' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to read or parse file', details: error.message });
+  } finally {
+    // Clean up the uploaded file
+    fs.unlinkSync(file.path);
+  }
 });
 
 // Start the server
