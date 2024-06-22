@@ -2,14 +2,14 @@ const express = require('express');
 const axios = require('axios');
 const SSE = require('express-sse');
 const multer = require('multer');
-const fs = require('fs');
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-// Configure multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+// Configure multer for memory storage
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Helper function to chunk an array
 const chunkArray = (array, chunkSize) => {
@@ -40,9 +40,8 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
   }
 
   try {
-    // Read and parse the JSON file
-    const fileContent = fs.readFileSync(file.path, 'utf8');
-    const deviceTokens = JSON.parse(fileContent);
+    // Parse the JSON file from the buffer
+    const deviceTokens = JSON.parse(file.buffer.toString());
 
     if (!Array.isArray(deviceTokens)) {
       return res.status(400).json({ error: 'Invalid file format' });
@@ -83,9 +82,6 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
     res.status(200).json({ message: 'Notifications sent' });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to read or parse file', details: error.message });
-  } finally {
-    // Clean up the uploaded file
-    fs.unlinkSync(file.path);
   }
 });
 
@@ -93,3 +89,5 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+
+module.exports = app;
