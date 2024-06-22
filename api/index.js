@@ -48,6 +48,9 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
       return res.status(400).json({ error: 'Invalid file format' });
     }
 
+    // Send initial response to avoid function timeout
+    res.status(200).json({ message: 'Notification processing started' });
+
     const deviceTokenChunks = chunkArray(deviceTokens, 150);
     let progress = 0;
 
@@ -75,14 +78,12 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
         sse.send({ progress, total: deviceTokens.length });
       } catch (error) {
         sse.send({ error: 'Failed to send notifications', details: error.message });
-        return res.status(500).json({ error: 'Failed to send notifications', details: error.message });
       }
     }
 
     sse.send({ progress: deviceTokens.length, total: deviceTokens.length }); // Ensure completion is sent
-    res.status(200).json({ message: 'Notifications sent' });
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to read or parse file', details: error.message });
+    sse.send({ error: 'Failed to read or parse file', details: error.message });
   }
 });
 
