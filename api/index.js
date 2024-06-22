@@ -22,7 +22,6 @@ const chunkArray = (array, chunkSize) => {
 
 // Initialize SSE
 const sse = new SSE();
-
 app.get('/', (req, res) => {
   res.send('Hello, World!');
 });
