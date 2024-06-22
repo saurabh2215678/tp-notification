@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const SSE = require('express-sse');
 const app = express();
 const port = 3000;
 
@@ -14,9 +15,15 @@ const chunkArray = (array, chunkSize) => {
   return chunks;
 };
 
+// Initialize SSE
+const sse = new SSE();
+
 app.get('/', (req, res) => {
-    res.send('Hello, World!');
+  res.send('Hello, World!');
 });
+
+// SSE endpoint to send progress updates
+app.get('/api/notifications-progress', sse.init);
 
 // API endpoint to send notifications
 app.post('/api/send-notifications', async (req, res) => {
@@ -47,13 +54,15 @@ app.post('/api/send-notifications', async (req, res) => {
         },
       });
       progress += chunk.length;
-      res.write(JSON.stringify({ progress, total: deviceTokens.length }));
+      sse.send({ progress, total: deviceTokens.length });
     } catch (error) {
+      sse.send({ error: 'Failed to send notifications', details: error.message });
       return res.status(500).json({ error: 'Failed to send notifications', details: error.message });
     }
   }
 
-  res.end();
+  sse.send({ progress: deviceTokens.length, total: deviceTokens.length }); // Ensure completion is sent
+  res.status(200).json({ message: 'Notifications sent' });
 });
 
 // Start the server
