@@ -46,6 +46,9 @@ app.post('/api/send-notifications', async (req, res) => {
           icon: message.icon,
           link: message.link,
         },
+        data:{
+          actions: []
+        },
         registration_ids: chunk,
       }, {
         headers: {
