@@ -42,6 +42,7 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
   try {
     // Parse the JSON file from the buffer
     const deviceTokens = JSON.parse(file.buffer.toString());
+    const messagesObj = JSON.parse(message);
 
     if (!Array.isArray(deviceTokens)) {
       return res.status(400).json({ error: 'Invalid file format' });
@@ -54,11 +55,11 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), async (re
       try {
         await axios.post('https://fcm.googleapis.com/fcm/send', {
           notification: {
-            title: message.title,
-            body: message.description,
-            image: message.image,
-            icon: message.icon,
-            link: message.link,
+            title: messagesObj.title,
+            body: messagesObj.description,
+            image: messagesObj.image,
+            icon: messagesObj.icon,
+            link: messagesObj.link,
           },
           data: {
             actions: []
