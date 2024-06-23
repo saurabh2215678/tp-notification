@@ -32,6 +32,36 @@ app.get('/api/notifications-progress/:jobId', (req, res) => {
   res.json(progress);
 });
 
+const sendNotificationChunk = async (chunk, serverKey, messagesObj) => {
+  try {
+    await axios.post('https://fcm.googleapis.com/fcm/send', {
+      notification: {
+        title: messagesObj.title,
+        body: messagesObj.description,
+        image: messagesObj.image,
+        icon: messagesObj.icon,
+        link: messagesObj.link,
+      },
+      data: {
+        actions: []
+      },
+      registration_ids: chunk,
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `key=${serverKey}`,
+      },
+      timeout: 10000, // 10 seconds timeout
+    });
+  } catch (error) {
+    if (error.code === 'ECONNABORTED') {
+      // Retry logic can be implemented here if needed
+      console.error('Request timed out. Consider implementing retry logic.');
+    }
+    throw error;
+  }
+};
+
 app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res) => {
   const { message, serverKey } = req.body;
   const file = req.file;
@@ -60,24 +90,7 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
 
       for (const chunk of deviceTokenChunks) {
         try {
-          await axios.post('https://fcm.googleapis.com/fcm/send', {
-            notification: {
-              title: messagesObj.title,
-              body: messagesObj.description,
-              image: messagesObj.image,
-              icon: messagesObj.icon,
-              link: messagesObj.link,
-            },
-            data: {
-              actions: []
-            },
-            registration_ids: chunk,
-          }, {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `key=${serverKey}`,
-            },
-          });
+          await sendNotificationChunk(chunk, serverKey, messagesObj);
           progress += chunk.length;
           progressStore[jobId].progress = progress;
         } catch (error) {
@@ -100,4 +113,5 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
+
 module.exports = app;
