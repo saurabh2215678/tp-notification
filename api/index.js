@@ -32,33 +32,39 @@ app.get('/api/notifications-progress/:jobId', (req, res) => {
   res.json(progress);
 });
 
-const sendNotificationChunk = async (chunk, serverKey, messagesObj) => {
-  try {
-    await axios.post('https://fcm.googleapis.com/fcm/send', {
-      notification: {
-        title: messagesObj.title,
-        body: messagesObj.description,
-        image: messagesObj.image,
-        icon: messagesObj.icon,
-        link: messagesObj.link,
-      },
-      data: {
-        actions: []
-      },
-      registration_ids: chunk,
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=${serverKey}`,
-      },
-      timeout: 10000, // 10 seconds timeout
-    });
-  } catch (error) {
-    if (error.code === 'ECONNABORTED') {
-      // Retry logic can be implemented here if needed
-      console.error('Request timed out. Consider implementing retry logic.');
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const sendNotificationChunk = async (chunk, serverKey, messagesObj, retries = 3) => {
+  const retryDelay = 2000; // initial retry delay in ms
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      await axios.post('https://fcm.googleapis.com/fcm/send', {
+        notification: {
+          title: messagesObj.title,
+          body: messagesObj.description,
+          image: messagesObj.image,
+          icon: messagesObj.icon,
+          link: messagesObj.link,
+        },
+        data: {
+          actions: []
+        },
+        registration_ids: chunk,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `key=${serverKey}`,
+        },
+        timeout: 20000, // 20 seconds timeout
+      });
+      return; // if successful, exit the function
+    } catch (error) {
+      if (attempt < retries) {
+        await delay(retryDelay * Math.pow(2, attempt)); // exponential backoff
+      } else {
+        throw error; // if maximum retries reached, throw error
+      }
     }
-    throw error;
   }
 };
 
@@ -83,7 +89,7 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
         return;
       }
 
-      const deviceTokenChunks = chunkArray(deviceTokens, 150);
+      const deviceTokenChunks = chunkArray(deviceTokens, 100); // smaller chunk size
       progressStore[jobId].total = deviceTokens.length;
 
       let progress = 0;
