@@ -79,7 +79,7 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
   const jobId = uuidv4();
   progressStore[jobId] = { progress: 0, total: 0, error: null };
 
-  setImmediate(async () => {
+  (async () => {
     try {
       const deviceTokens = JSON.parse(file.buffer.toString());
       const messagesObj = JSON.parse(message);
@@ -110,7 +110,7 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
       progressStore[jobId].error = 'Failed to read or parse file';
       progressStore[jobId].details = error.message;
     }
-  });
+  })();
 
   res.status(200).json({ message: 'Notification processing started', jobId });
 });
