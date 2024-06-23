@@ -35,7 +35,7 @@ app.get('/api/notifications-progress/:jobId', (req, res) => {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const sendNotificationChunk = async (chunk, serverKey, messagesObj, retries = 3) => {
-  const retryDelay = 2000; // initial retry delay in ms
+  const retryDelay = 2000;
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       await axios.post('https://fcm.googleapis.com/fcm/send', {
@@ -55,14 +55,16 @@ const sendNotificationChunk = async (chunk, serverKey, messagesObj, retries = 3)
           'Content-Type': 'application/json',
           'Authorization': `key=${serverKey}`,
         },
-        timeout: 20000, // 20 seconds timeout
+        timeout: 20000,
       });
-      return; // if successful, exit the function
+      console.log(`Successfully sent chunk of ${chunk.length} notifications`);
+      return;
     } catch (error) {
+      console.error(`Attempt ${attempt + 1} failed: ${error.message}`);
       if (attempt < retries) {
-        await delay(retryDelay * Math.pow(2, attempt)); // exponential backoff
+        await delay(retryDelay * Math.pow(2, attempt));
       } else {
-        throw error; // if maximum retries reached, throw error
+        throw error;
       }
     }
   }
@@ -89,9 +91,8 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
         return;
       }
 
-      const deviceTokenChunks = chunkArray(deviceTokens, 100); // smaller chunk size
+      const deviceTokenChunks = chunkArray(deviceTokens, 100);
       progressStore[jobId].total = deviceTokens.length;
-
       let progress = 0;
 
       for (const chunk of deviceTokenChunks) {
