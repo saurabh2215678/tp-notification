@@ -100,5 +100,4 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
-
 module.exports = app;
