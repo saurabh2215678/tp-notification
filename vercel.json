@@ -5,10 +5,5 @@
             "source": "/(.*)",
             "destination": "/api"
         }
-    ],
-    "functions": {
-        "api/send-notifications": {
-        "maxDuration": 60
-        }
-    }
+    ]
 }
