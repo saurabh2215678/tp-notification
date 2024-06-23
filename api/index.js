@@ -100,17 +100,21 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
           await sendNotificationChunk(chunk, serverKey, messagesObj);
           progress += chunk.length;
           progressStore[jobId].progress = progress;
+          console.log(`Progress: ${progress}/${deviceTokens.length}`);
         } catch (error) {
           progressStore[jobId].error = 'Failed to send notifications';
           progressStore[jobId].details = error.message;
+          console.error(`Error: ${error.message}`);
           return;
         }
       }
 
       progressStore[jobId].progress = deviceTokens.length;
+      console.log('All notifications sent successfully');
     } catch (error) {
       progressStore[jobId].error = 'Failed to read or parse file';
       progressStore[jobId].details = error.message;
+      console.error(`Error: ${error.message}`);
     }
   });
 
