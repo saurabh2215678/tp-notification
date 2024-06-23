@@ -57,10 +57,8 @@ const sendNotificationChunk = async (chunk, serverKey, messagesObj, retries = 3)
         },
         timeout: 20000,
       });
-      console.log(`Successfully sent chunk of ${chunk.length} notifications`);
       return;
     } catch (error) {
-      console.error(`Attempt ${attempt + 1} failed: ${error.message}`);
       if (attempt < retries) {
         await delay(retryDelay * Math.pow(2, attempt));
       } else {
@@ -100,21 +98,17 @@ app.post('/api/send-notifications', upload.single('deviceTokensFile'), (req, res
           await sendNotificationChunk(chunk, serverKey, messagesObj);
           progress += chunk.length;
           progressStore[jobId].progress = progress;
-          console.log(`Progress: ${progress}/${deviceTokens.length}`);
         } catch (error) {
           progressStore[jobId].error = 'Failed to send notifications';
           progressStore[jobId].details = error.message;
-          console.error(`Error: ${error.message}`);
           return;
         }
       }
 
       progressStore[jobId].progress = deviceTokens.length;
-      console.log('All notifications sent successfully');
     } catch (error) {
       progressStore[jobId].error = 'Failed to read or parse file';
       progressStore[jobId].details = error.message;
-      console.error(`Error: ${error.message}`);
     }
   });
 
